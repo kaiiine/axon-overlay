@@ -1,0 +1,33 @@
+# Dépendances et build — reconstruits à l'installation (`plugin.json`)
+node_modules/
+ui/dist/
+.vite/
+coverage/
+
+# Tauri / Rust (macOS, Windows)
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets et configuration locale : jamais dans un dépôt public
+.env
+.env.*
+*.pem
+*.key
+
+# Journaux
+*.log
+npm-debug.log*
+
+# Éditeurs et système
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
