@@ -1,5 +1,7 @@
 <script lang="ts">
  import {model,answer,chooseFreeform,navigate} from '../model';
+ import {AUTRE,choicesFor} from '../choices';
+ import ChoiceList from './ChoiceList.svelte';
  import {hauteurNative} from '../mesure';
  import {titreDuRappel} from '../rappels';
  import Bulle from './Bulle.svelte';
@@ -11,9 +13,7 @@
  //: ses réponses en ligne. Même logique de réponse que `RequestCard` — seul le
  //: format change ; « détails » ouvre la conversation pour un plan ou un diff
  //: trop long pour tenir ici.
- const AUTRE='Autre (préciser)';
  const GENRES:Record<string,string>={autorisation:'autorisation',plan:'plan proposé',diff:'modifications',envoi:'envoi de mail',clarification:'question'};
- const norm=(c:string)=>c.trim().toLowerCase().replace(/\.$/,'');
  $: request=$model.requests[0];
  $: question=request?.questions[request.answers.length];
  //: Les demandes passent avant les rappels : elles bloquent une tâche.
@@ -21,10 +21,7 @@
  $: envoye=$model.popup?.envoye===true;
  $: pastille=$model.popup?.deplie===false;
  $: freeform=request?.freeform===true;
- //: Une autorisation, un plan, un diff ou un envoi ont déjà leurs propres
- //: issues (« Préciser », « Modifier ») : « Autre » n'y ajouterait que du bruit.
- $: autre=question?.libre!==false&&!['autorisation','plan','diff','envoi'].includes(request?.genre||'');
- $: choices=question&&question.choix.length?(autre?[...question.choix.filter(c=>norm(c)!==norm(AUTRE)),AUTRE]:[...question.choix]):[];
+ $: choices=choicesFor(question,request?.genre);
  $: busy=$model.busy||(!$model.connected&&!$model.demo);
  $: lignes=(request?.apercu||'').split('\n').map(l=>l.trim()).filter(Boolean);
  $: apercu=lignes[0]?.replace(/^\d+\.\s*/,'')||'';
@@ -69,7 +66,7 @@
      {#if freeform||!choices.length}
       <div class="libre"><FreeformAnswer disabled={busy} onSubmit={answer} placeholder={freeform?'Précise ta réponse…':'Ta réponse…'}/></div>
      {:else}
-      <div class="choix">{#each choices as choice,i}<button style={`--i:${i}`} class:primary={choice===question.affirmatif} class:autre={choice===AUTRE} disabled={busy} onclick={()=>choose(choice)}>{choice}</button>{/each}</div>
+      <ChoiceList {choices} primary={question.affirmatif} disabled={busy} onChoose={choose}/>
      {/if}
     </div>
    {/key}
@@ -103,13 +100,6 @@
  .texte{font-size:13px;line-height:1.35;font-weight:520;letter-spacing:-.15px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
  .apercu{display:block;font:10px/1.5 var(--mono);color:#b9bdc8;background:#0003;padding:3px 8px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  .apercu em{font-style:normal;color:var(--faint);margin-left:6px}
- .choix{display:flex;flex-wrap:wrap;gap:6px;padding:2px 1px 3px}
- .choix button{max-width:100%;font-size:11px;line-height:1.35;text-align:left;padding:6px 12px;border:1px solid #ffffff14;border-radius:16px;background:#ffffff08;animation:boutonIn 420ms calc(120ms + var(--i) * 55ms) var(--spring) both;transition:transform 150ms var(--spring),background 150ms,border-color 150ms}
- @keyframes boutonIn{0%{opacity:0;transform:translateY(6px) scale(.92)}100%{opacity:1;transform:none}}
- .choix button:hover:not(:disabled){background:#ffffff12;border-color:#ffffff22;transform:translateY(-1px)}
- .choix button.primary{background:var(--accent);color:#302000;border-color:var(--accent);box-shadow:0 4px 16px #ffaf0030}
- .choix button.primary:hover:not(:disabled){background:#ffc02e}
- .choix button.autre{color:var(--muted);border-style:dashed}
  .libre :global(.freeform){margin-top:0}
  .libre :global(.freeform-label){display:none}
  .envoye-msg{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:520;color:#eed3a3;animation:questionIn 300ms var(--spring-soft) both}

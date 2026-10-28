@@ -435,8 +435,8 @@ it('« Ajouter un autre dossier ou dépôt » sur un suivi demande le sélecteur
 it('la zone de dépôt propose « Fichier » et « Dossier ou dépôt », ce dernier sans suivi visé',async()=>{
  reset();const post=vi.fn();window.webkit={messageHandlers:{axon:{postMessage:post}}};const target=document.createElement('div');document.body.append(target);const app=mount(App,{target});await tick();
  receive({type:'connexion',connecte:true});navigate('etudes');await tick();
- const boutons=[...target.querySelectorAll('.drop button')] as HTMLButtonElement[];
- expect(boutons.map(b=>b.textContent?.trim())).toEqual(['Fichier','Dossier ou dépôt']);
+ const boutons=[...target.querySelectorAll('.drop-choix button')] as HTMLButtonElement[];
+ expect(boutons.map(b=>b.textContent?.trim())).toEqual(['Joindre un fichier','Dossier ou dépôt']);
  post.mockClear();
  boutons[0].click();await tick();
  expect(post).toHaveBeenCalledWith({type:'demander_picker'});

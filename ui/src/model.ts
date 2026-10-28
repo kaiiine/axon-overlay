@@ -1,10 +1,12 @@
 import { get, writable } from 'svelte/store';
 import { entrance, finishEntrance } from './entrance';
 import { isNative, post } from './bridge';
-import type { AgentState, Model, ModeNatif, PageSuivi, Rappel, Request, View } from './types';
+import type { AgentState, Model, ModeNatif, PageSuivi, Rappel, View } from './types';
 import { lireRappel, titreDuRappel, type IdAction } from './rappels';
 import { INTEGRATIONS } from './integrations';
-const fresh = (): Model => ({ popup:null, rappels:[], enDirect:'', view:'home', state:'idle', connected:false, visible:true, demo:false, detail:'', draft:'', messages:[], activity:[], requests:[], commands:[], file:null, busy:false, motion:true, sound:false, notice:'', unread:0, integration:null, integrationData:{}, attachments:[], dragActif:false, creationSuivi:null, actionEtudes:null, pageSuivi:null, flux:{} });
+import { describeSessionChange, parseSession } from './session';
+import { acceptedAnswer, isLocalCommand, mergeRequest, parseRequest, skipInapplicable } from './requests';
+const fresh = (): Model => ({ popup:null, rappels:[], enDirect:'', view:'home', state:'idle', connected:false, visible:true, demo:false, detail:'', draft:'', messages:[], activity:[], requests:[], commands:[], file:null, busy:false, motion:true, sound:false, notice:'', unread:0, integration:null, integrationData:{}, attachments:[], dragActif:false, creationSuivi:null, actionEtudes:null, pageSuivi:null, flux:{}, session:null });
 export const model = writable<Model>(fresh());
 let serial=0, unlock: ReturnType<typeof setTimeout> | undefined, realTraffic=false;
 const txt=(v:unknown):string=>v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
@@ -18,7 +20,8 @@ const statutGeneration=(v:unknown):'en_cours'|'terminee'|'echouee'|undefined=>
 //: bulle d'un rappel.
 function nativeMode(s:Pick<Model,'view'|'popup'|'requests'>=get(model)):ModeNatif{
   if(s.popup)return !s.popup.deplie?'pastille':s.requests.length?'notif':'bulle';
-  return s.view==='home'?'accueil':'detail';
+  if(['home','etudes','suivi','settings','integrations'].includes(s.view))return 'accueil';
+  return s.view==='chat'?'conversation':'detail';
 }
 //: Naviguer quitte toujours la notification : « détails » y mène au chat.
 export function navigate(view:View){finishEntrance();const previous=nativeMode();model.update(s=>({...s,view,popup:null,unread:view==='chat'?0:s.unread,integration:view==='integrations'?s.integration:null}));if(nativeMode()!==previous)post({type:'mode',mode:nativeMode()});}
@@ -256,7 +259,7 @@ export function replayEntrance(){const s=get(model);if(!s.visible||!arriveeLibre
 export function close(){post({type:'ouvrir',ouvert:false});}
 export function setDraft(draft:string){model.update(s=>({...s,draft}));}
 export function notice(message:string){model.update(s=>({...s,notice:message}));}
-function log(who:'axon'|'toi',text:string){model.update(s=>({...s,messages:[...s.messages,{id:++serial,who,text}].slice(-200),unread:who==='axon'&&s.view!=='chat'?s.unread+1:s.unread}));}
+function log(who:'axon'|'toi'|'systeme',text:string){model.update(s=>({...s,messages:[...s.messages,{id:++serial,who,text}].slice(-200),unread:who==='axon'&&s.view!=='chat'?s.unread+1:s.unread}));}
 export function reset(){finishEntrance();clearTimeout(unlock);clearTimeout(sortiePopup);model.set(fresh());realTraffic=false;}
 export function receive(value:unknown){
   if(!object(value)||typeof value.type!=='string')return;
@@ -298,6 +301,7 @@ function handle(m:Record<string,unknown>){
       break;
     }
     case 'etat': {const aliases:Record<string,AgentState>={approval:'waiting',question:'waiting',erreur:'error',error:'error',searching:'thinking'};const name=txt(m.etat);const state=aliases[name]||(['idle','thinking','working','waiting','finished','sleeping'].includes(name)?name as AgentState:'idle');model.update(s=>({...s,state,detail:txt(m.texte)||s.detail}));break;}
+    case 'session':applySession(m);break;
     case 'commandes': model.update(s=>({...s,commands:Array.isArray(m.liste)?m.liste.filter(object).filter(c=>typeof c.cmd==='string').map(c=>({cmd:txt(c.cmd),desc:txt(c.desc)})):[]}));break;
     case 'outil': {
       const nom=txt(m.nom),detail=txt(m.detail);
@@ -315,14 +319,9 @@ function handle(m:Record<string,unknown>){
     case 'reponse_flux':model.update(s=>({...s,enDirect:txt(m.texte),state:'thinking'}));break;
     case 'message':log('axon',txt(m.texte));model.update(s=>({...s,enDirect:''}));break;
     case 'confirmation':case 'demande': {
-      if(typeof m.id!=='string'&&typeof m.id!=='number')break;
-      const legacy=m.type==='confirmation';
-      const questions=legacy?[{texte:txt(m.raison)||'Autoriser cette commande ?',choix:['Autoriser','Refuser'],affirmatif:'Autoriser',libre:true}]:Array.isArray(m.questions)?m.questions.filter(object).map(q=>({texte:txt(q.texte),choix:Array.isArray(q.choix)?q.choix.filter((c):c is string=>typeof c==='string'):[],affirmatif:txt(q.affirmatif),libre:q.libre!==false,si:txt(q.si)})):[];
-      if(!questions.length)questions.push({texte:txt(m.cle)||'Ta réponse est nécessaire.',choix:[],affirmatif:'',libre:true,si:''});
-      const request:Request={id:m.id,genre:txt(m.genre),apercu:txt(legacy?m.commande:m.apercu),questions,answers:[],legacy};
-      model.update(s=>{const index=s.requests.findIndex(p=>p.id===request.id);const requests=[...s.requests];if(index<0)requests.push(request);else{const previous=requests[index];requests[index]={...request,answers:JSON.stringify(previous.questions)===JSON.stringify(request.questions)?previous.answers:[]};}return {...s,requests,state:'waiting'};});
-      // Dans le chat, la carte s'affiche déjà sur place. Partout ailleurs —
-      // île fermée comprise — une petite notification, sans quitter la vue.
+      const request=parseRequest(m);
+      if(!request)break;
+      model.update(s=>({...s,requests:mergeRequest(s.requests,request),state:'waiting'}));
       {const s=get(model);if(!(s.visible&&s.view==='chat'&&!s.popup))ouvrirPopup();}
       notifySound();break;
     }
@@ -428,19 +427,23 @@ function handle(m:Record<string,unknown>){
     case 'glisser':model.update(s=>({...s,dragActif:m.actif===true}));break;
   }
 }
+function applySession(m:Record<string,unknown>){
+  const incoming=parseSession(m);
+  if(!incoming)return;
+  const previous=get(model).session;
+  model.update(s=>({...s,session:incoming}));
+  describeSessionChange(previous,incoming).forEach(note=>log('systeme',note));
+}
 function file(m:Record<string,unknown>){const diff=m.type==='diff'||m.diff!==undefined;model.update(s=>({...s,file:{path:txt(m.chemin||m.fichier||m.detail)||'fichier',content:txt(diff?(m.diff??m.contenu):m.contenu),diff,start:typeof m.ligne==='number'&&Number.isInteger(m.ligne)&&m.ligne>0?m.ligne:1}}));}
-export function submit(){const s=get(model),text=s.draft.trim();if(!text||(!s.connected&&!s.demo)||s.busy)return;if(s.requests.length){answer(text);return;}if(!s.demo&&!post({type:'commande',texte:text})){notice('Le lien avec Axon est indisponible. Ton brouillon est conservé.');return;}setDraft('');log('toi',text);model.update(s=>({...s,state:'thinking'}));if(s.demo)log('axon','Ceci est un aperçu. Aucune commande n’a été exécutée.');}
-//: La réponse effectivement envoyée pour `texte`, ou null si elle n'est pas
-//: acceptable. Un texte tapé dans le chat face à des boutons était ignoré EN
-//: SILENCE dès qu'il différait d'un libellé (« oui », « autoriser » en
-//: minuscules…) : rien ne partait, le CLI attendait toujours, l'île semblait
-//: bloquée.
-function reponseAcceptee(q:{choix:string[];libre?:boolean},texte:string,saisieLibre:boolean):string|null{
-  if(!q.choix.length||saisieLibre)return texte;
-  const choix=q.choix.find(c=>c===texte)??q.choix.find(c=>c.toLowerCase()===texte.toLowerCase());
-  if(choix)return choix;
-  if(q.libre!==false)return texte;   // réponse libre, comme « Autre (préciser) »
-  return null;
+export function submit(){
+  const s=get(model),text=s.draft.trim();
+  if(!text||(!s.connected&&!s.demo)||s.busy)return;
+  if(s.requests.length){answer(text);return;}
+  if(!s.demo&&!post({type:'commande',texte:text})){notice('Le lien avec Axon est indisponible. Ton brouillon est conservé.');return;}
+  setDraft('');
+  log('toi',text);
+  if(!isLocalCommand(text))model.update(s=>({...s,state:'thinking'}));
+  if(s.demo)log('axon','Ceci est un aperçu. Aucune commande n’a été exécutée.');
 }
 export function answer(text:string){
   const s=get(model),p=s.requests[0];
@@ -448,20 +451,16 @@ export function answer(text:string){
   if(!s.connected&&!s.demo){notice('Axon n’est pas connecté : ta réponse n’a pas été envoyée.');return;}
   const q=p.questions[p.answers.length];
   if(!q)return;
-  const reponse=reponseAcceptee(q,text,!!p.freeform);
+  const reponse=acceptedAnswer(q,text,!!p.freeform);
   if(reponse===null){notice(`Choisis une des réponses proposées : ${q.choix.join(', ')}.`);return;}
-  const answers=[...p.answers,reponse];
-  // Une question conditionnelle (`si`) qui ne s'applique pas est sautée et vaut
-  // "" : sinon « Que faut-il changer ? » restait affichée après « Exécuter le
-  // plan », rien ne partait et le CLI attendait — tout semblait bloqué.
-  while(answers.length<p.questions.length){const suivante=p.questions[answers.length];if(!suivante.si||suivante.si===answers[answers.length-1])break;answers.push('');}
+  const answers=skipInapplicable(p.questions,[...p.answers,reponse]);
   const derniere=answers.length===p.questions.length;
   if(derniere&&!s.demo){
     const ok=post(p.legacy?{type:'decision',id:p.id,accord:reponse==='Autoriser'}:{type:'reponse_demande',id:p.id,reponses:answers});
     if(!ok){notice('Réponse non envoyée. Tu peux réessayer.');return;}
   }
   log('toi',reponse);
-  model.update(s=>({...s,draft:'',busy:true,requests:derniere?s.requests.slice(1):[{...p,answers,freeform:false},...s.requests.slice(1)],state:derniere?'working':'waiting'}));
+  model.update(s=>({...s,draft:'',busy:true,requests:derniere?s.requests.slice(1):[{...p,answers,freeform:false},...s.requests.slice(1)],state:derniere?'idle':'waiting'}));
   clearTimeout(unlock);
   unlock=setTimeout(()=>model.update(s=>({...s,busy:false})),300);
   if(derniere)finirPopup();

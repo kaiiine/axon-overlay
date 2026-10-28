@@ -2,8 +2,7 @@
  import {tick} from 'svelte';
  import {model} from '../model';
  import Icon from './Icon.svelte';
- //: Même patron « conditionally revealed » que FreeformAnswer — le "+"
- //: révèle le formulaire juste en dessous, pas une nouvelle vue.
+ import FormSheet from './commun/FormSheet.svelte';
  export let disabled=false;
  export let onCreer:(titre:string,type:string,matiere:string)=>string|undefined;
  const TYPES=[
@@ -44,41 +43,22 @@
   if(!t||disabled||enCours)return;
   erreur='';
   idSuivi=onCreer(t,type,matiere.trim())??null;
+  if(!idSuivi)erreur='La création n’a pas pu être envoyée. Vérifie la connexion à Axon.';
  }
- function key(e:KeyboardEvent){if(e.key==='Enter'){e.preventDefault();soumettre();}else if(e.key==='Escape'){e.preventDefault();basculer();}}
+ function key(e:KeyboardEvent){if(e.key==='Enter'){e.preventDefault();soumettre();}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();basculer();}}
 </script>
 <button class="toggle" class:ouvert onclick={basculer} title="Nouveau suivi" aria-label="Nouveau suivi" aria-expanded={ouvert} disabled={disabled||enCours}>
  <Icon name="plus"/>
 </button>
 {#if ouvert}
- <div class="form">
-  <input bind:this={titreInput} bind:value={titre} onkeydown={key} placeholder="Titre du suivi…" aria-label="Titre du suivi" autocomplete="off" disabled={disabled||enCours}/>
-  <div class="row">
-   <select bind:value={type} aria-label="Type de suivi" disabled={disabled||enCours}>
-    {#each TYPES as t}<option value={t.valeur}>{t.label}</option>{/each}
-   </select>
-   {#if type==='matiere'}<input bind:value={matiere} onkeydown={key} placeholder="Matière (optionnel)" aria-label="Matière" autocomplete="off" disabled={disabled||enCours}/>{/if}
-   <button class="send" title="Créer" aria-label="Créer" disabled={disabled||enCours||!titre.trim()} onclick={soumettre}><Icon name="send"/></button>
+ <FormSheet titre="Nouveau suivi" busy={enCours} onClose={basculer}>
+  <div class="form-grid">
+   <label>Le nom de ton espace<input bind:this={titreInput} bind:value={titre} onkeydown={key} placeholder="Machine learning, mon projet…" aria-label="Titre du suivi" autocomplete="off" disabled={disabled||enCours}/></label>
+   <label>Ce que tu veux suivre<select bind:value={type} aria-label="Type de suivi" disabled={disabled||enCours}>{#each TYPES as t}<option value={t.valeur}>{t.label}</option>{/each}</select></label>
+   {#if type==='matiere'}<label class="wide">Matière · facultatif<input bind:value={matiere} onkeydown={key} placeholder="Ex. Informatique" aria-label="Matière" autocomplete="off" disabled={disabled||enCours}/></label>{/if}
   </div>
-  {#if erreur}<p class="erreur">{erreur}</p>{/if}
- </div>
+  {#if erreur}<p class="erreur" role="alert">{erreur}</p>{/if}
+  <svelte:fragment slot="footer"><button disabled={enCours} onclick={basculer}>Annuler</button><button class="send" aria-label="Créer" disabled={disabled||enCours||!titre.trim()} onclick={soumettre}>{enCours?'Création…':'Créer le suivi'}<Icon name="arrow"/></button></svelte:fragment>
+ </FormSheet>
 {/if}
-<style>
- .toggle{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;color:var(--muted);flex:none}
- .toggle:hover,.toggle.ouvert{background:#ffffff0a;color:var(--text)}
- .toggle :global(.icon){width:11px;height:11px}
- .toggle.ouvert :global(.icon){transform:rotate(45deg)}
- .toggle :global(.icon){transition:transform 150ms var(--spring)}
- .form{display:flex;flex-direction:column;gap:6px;flex:none;animation:revealIn 180ms var(--spring-soft) both}
- @keyframes revealIn{0%{opacity:0;transform:translateY(-3px)}100%{opacity:1;transform:translateY(0)}}
- .row{display:flex;gap:6px;align-items:center}
- input,select{border:1px solid #ffffff14;background:#ffffff06;color:var(--text);font:11px/1.4 var(--font);padding:7px 9px;border-radius:9px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color 150ms,background 150ms}
- input{flex:1;min-width:0}
- input:focus,select:focus{border-color:#ffaf0045;background:#ffffff09}
- input:disabled,select:disabled{opacity:.5}
- select{flex:none;width:96px}
- .send{width:28px;height:28px;flex:none;border-radius:8px;display:grid;place-items:center;background:var(--accent);color:#241700;transition:transform 160ms var(--spring),background 150ms,opacity 150ms}
- .send:hover:not(:disabled){background:#ffc02e;transform:translateY(-1px)}
- .send:disabled{opacity:.35}
- .erreur{font-size:10px;color:#e68a8a;margin:0}
-</style>
+<style>.toggle{width:25px;height:25px;border-radius:8px;display:grid;place-items:center;color:var(--accent);background:#e9bc7b0b;border:1px solid #e9bc7b24;flex:none}.toggle:hover{background:#e9bc7b18}.toggle :global(.icon){width:12px;height:12px}.erreur{font-size:10px;color:#efa7a0;margin-top:6px}</style>

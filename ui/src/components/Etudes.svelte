@@ -1,4 +1,5 @@
 <script lang="ts">
+ import {onDestroy} from 'svelte';
  import {model,demanderAxon,demanderPicker,detacherPiece,demanderRaccourci,demanderDetail,creerSuivi,creerEcheance,archiverSuivi,lierRessource,supprimerSuivi,notice,ouvrirSuivi} from '../model';
  import Icon from './Icon.svelte';
  import AttachmentChip from './AttachmentChip.svelte';
@@ -98,105 +99,24 @@
  //: Pour peupler le sélecteur de suivi d'AjouterEcheance.svelte — une
  //: échéance appartient toujours à un suivi existant (§3, lot 3).
  $: suivisPourSelect=(suivis?.rows??[]).map(r=>({id:r.id??'',title:r.title}));
+
+ let onglet='suivis';
+ const onglets=[['suivis','Suivis','book'],['documents','Documents','paperclip'],['echeances','Échéances','bell'],['recents','Récents','file']];
+ onDestroy(()=>clearTimeout(delaiConfirmation));
 </script>
 <div class="etudes">
- <header>
-  <span class="mark"><Icon name="book"/></span>
-  <div class="meta"><strong>Études</strong></div>
-  <button class="refresh" onclick={actualiserTout} title="Actualiser" aria-label="Actualiser"><Icon name="refresh"/></button>
- </header>
-
- <!-- Un fichier : travail rapide (pièce jointe). Un dossier ou un dépôt :
-      un suivi à son nom, auquel il est lié — glissé ici ou choisi. -->
- <div class="drop" class:actif={$model.dragActif}>
-  <p>Déposer un fichier ou un dossier</p>
-  <div class="drop-choix">
-   <button onclick={demanderPicker} disabled={!$model.connected}><Icon name="paperclip"/>Fichier</button>
-   <button onclick={()=>suivreActionLigne(lierRessource('','dossier'))} disabled={!$model.connected}><Icon name="folder"/>Dossier ou dépôt</button>
-  </div>
+ <aside class="student-nav"><div class="student-title"><strong>Student<span>.</span></strong><small>Un espace pour avancer.</small></div><nav aria-label="Sections Student">{#each onglets as [id,label,icon]}<button class:active={onglet===id} aria-pressed={onglet===id} onclick={()=>onglet=id}><Icon name={icon}/>{label}</button>{/each}</nav><button class="refresh" onclick={actualiserTout} aria-label="Actualiser les études"><Icon name="refresh"/>Actualiser</button></aside>
+ <div class="student-content">
+ <section hidden={onglet!=='suivis'}><div class="section-head"><span>Suivis <small>{suivis?.rows?.length??0} espaces</small></span><CreerSuivi disabled={!$model.connected} onCreer={creerSuivi}/></div><div class="scroll">
+ {#if suivis?.rows?.length}{#each suivis.rows as r}<Row title={r.title} meta={r.meta} tag={r.tag} onOpen={()=>ouvrirSuivi(r.id??'')} actions={actionsSuivi(r,suiviAConfirmer)}/>{/each}
+ {:else if suivis?.status==='loading'}<Skeleton stats={false}/>{:else if suivis?.status==='error'}<p class="empty error">{suivis.message}</p>{:else}<div class="empty-state"><Icon name="book"/><strong>Un cours, un projet, un prochain pas.</strong><p>Crée ton premier suivi avec le +.</p></div>{/if}</div></section>
+ <section hidden={onglet!=='documents'}><div class="section-head"><span>Documents <small>Travail rapide</small></span></div><div class="scroll"><div class="drop" class:actif={$model.dragActif}><Icon name="folder"/><div><p>Dépose tes idées ici.</p><small>Un document pour une fiche. Un dossier pour un projet.</small></div></div><div class="drop-choix"><button onclick={demanderPicker} disabled={!$model.connected}><Icon name="paperclip"/>Joindre un fichier</button><button onclick={()=>suivreActionLigne(lierRessource('','dossier'))} disabled={!$model.connected}><Icon name="folder"/>Dossier ou dépôt</button></div>
+ {#if $model.attachments.length}<div class="attachments" aria-label="Documents attachés">{#each $model.attachments as a (a.nom)}<AttachmentChip nom={a.nom} statut={a.statut} message={a.message} taille={a.taille} onRemove={()=>detacherPiece(a.nom)}/>{/each}</div>{/if}
+ {#if documents.length}<div class="etudes-actions"><button class="action" disabled={recents?.generationFicheStatut==='en_cours'} onclick={()=>clicQuickWork('fiche')}><Icon name="file"/>{libelleQuickWork('fiche')}</button><button class="action" disabled={recents?.generationExoStatut==='en_cours'} onclick={()=>clicQuickWork('exo')}><Icon name="spark"/>{libelleQuickWork('exo')}</button></div>{/if}</div></section>
+ <section hidden={onglet!=='echeances'}><div class="section-head"><span>Échéances <small>Les dates à garder en tête</small></span><AjouterEcheance disabled={!$model.connected} suivis={suivisPourSelect} onCreer={creerEcheance}/></div><div class="scroll">{#if echeances?.rows?.length}{#each echeances.rows as r}<EcheanceRow title={r.title} meta={r.meta} tag={r.tag} suiviId={r.suiviId??''} echeanceId={r.id??''}/>{/each}{:else if echeances?.status==='loading'}<Skeleton stats={false}/>{:else if echeances?.status==='error'}<p class="empty error">{echeances.message}</p>{:else}<p class="empty">Aucune échéance à venir. Ajoute-en une avec le +.</p>{/if}</div></section>
+ <section hidden={onglet!=='recents'}><div class="section-head"><span>Récents <small>Fiches et exercices</small></span></div><div class="scroll">{#if recents?.rows?.length}{#each recents.rows as r}<Row title={r.title} meta={r.meta} tag={r.tag} actions={actionsResultat(r.id??r.title)}/>{/each}{:else if recents?.status==='loading'}<Skeleton stats={false}/>{:else if recents?.status==='error'}<p class="empty error">{recents.message}</p>{:else}<p class="empty">Tes fiches et exercices apparaîtront ici.</p>{/if}</div></section>
  </div>
- {#if $model.attachments.length}
-  <div class="attachments" aria-label="Documents attachés">
-   {#each $model.attachments as a (a.nom)}<AttachmentChip nom={a.nom} statut={a.statut} message={a.message} taille={a.taille} onRemove={()=>detacherPiece(a.nom)}/>{/each}
-  </div>
- {/if}
- {#if documents.length}
-  <!-- Classe "etudes-actions", pas "actions" : Header.svelte a déjà un
-       .actions — même piège que .row/.detail/.glass ailleurs dans ce projet. -->
-  <div class="etudes-actions">
-   <button class="action" disabled={recents?.generationFicheStatut==='en_cours'} onclick={()=>clicQuickWork('fiche')}><Icon name="file"/>{libelleQuickWork('fiche')}</button>
-   <button class="action" disabled={recents?.generationExoStatut==='en_cours'} onclick={()=>clicQuickWork('exo')}><Icon name="spark"/>{libelleQuickWork('exo')}</button>
-  </div>
- {/if}
-
- <!-- Les lignes déjà chargées restent affichées pendant une actualisation :
-      le squelette n'apparaît que s'il n'y a encore rien à montrer. -->
- <section>
-  <div class="section-head"><span>Suivis</span><CreerSuivi disabled={!$model.connected} onCreer={creerSuivi}/></div>
-  {#if suivis?.rows?.length}
-   {#each suivis.rows as r}
-    <Row title={r.title} meta={r.meta} tag={r.tag} onOpen={()=>ouvrirSuivi(r.id??'')} actions={actionsSuivi(r,suiviAConfirmer)}/>
-   {/each}
-  {:else if suivis?.status==='loading'}
-   <Skeleton stats={false}/>
-  {:else if suivis?.status==='error'}
-   <p class="empty error">{suivis.message}</p>
-  {:else}
-   <p class="empty">Aucun suivi</p>
-  {/if}
- </section>
-
- <section>
-  <div class="section-head"><span>Échéances</span><AjouterEcheance disabled={!$model.connected} suivis={suivisPourSelect} onCreer={creerEcheance}/></div>
-  {#if echeances?.rows?.length}
-   {#each echeances.rows as r}<EcheanceRow title={r.title} meta={r.meta} tag={r.tag} suiviId={r.suiviId??''} echeanceId={r.id??''}/>{/each}
-  {:else if echeances?.status==='loading'}
-   <Skeleton stats={false}/>
-  {:else if echeances?.status==='error'}
-   <p class="empty error">{echeances.message}</p>
-  {:else}
-   <p class="empty">Aucune échéance à venir</p>
-  {/if}
- </section>
-
- <section class="grow">
-  <div class="section-head"><span>Récents</span></div>
-  {#if recents?.rows?.length}
-   {#each recents.rows as r}<Row title={r.title} meta={r.meta} tag={r.tag} actions={actionsResultat(r.id??r.title)}/>{/each}
-  {:else if recents?.status==='loading'}
-   <Skeleton stats={false}/>
-  {:else if recents?.status==='error'}
-   <p class="empty error">{recents.message}</p>
-  {:else}
-   <p class="empty">Aucune fiche ni exercice</p>
-  {/if}
- </section>
 </div>
 <style>
- .etudes{height:100%;display:flex;flex-direction:column;gap:11px;min-height:0;overflow:auto;padding:1px}
- header{display:flex;align-items:center;gap:10px;flex:none}
- .mark{width:32px;height:32px;border-radius:11px;display:grid;place-items:center;color:#dfb86e;background:#ffaf0014;border:1px solid #ffaf0030;flex:none}
- .meta{min-width:0;flex:1}
- .meta strong{display:block;font-size:13px;font-weight:600;letter-spacing:-.1px}
- .drop{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px 14px;border:1.5px dashed #ffffff20;border-radius:16px;color:var(--muted);text-align:center;transition:background 150ms,border-color 150ms,color 150ms}
- .drop.actif{background:#ffaf0014;border-color:#ffaf0060;color:#dfb86e}
- .drop p{font-size:10.5px;max-width:300px}
- .drop-choix{display:flex;gap:8px}
- .drop-choix button{display:flex;align-items:center;gap:6px;font-size:10px;padding:7px 12px;border-radius:10px;border:1px solid #ffaf0024;background:#ffaf0009;color:#dfb86e;transition:transform 160ms var(--spring),background 150ms,border-color 150ms}
- .drop-choix button:hover:not(:disabled){background:#ffaf0014;border-color:#ffaf0040;transform:translateY(-1px)}
- .drop-choix :global(.icon){width:12px;height:12px}
- .attachments{display:flex;flex-wrap:wrap;gap:6px;flex:none}
- .etudes-actions{display:flex;gap:8px;flex:none}
- .action{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:10px;padding:9px 10px;border-radius:10px;border:1px solid #ffaf0024;background:#ffaf0009;color:#dfb86e;transition:transform 160ms var(--spring),background 150ms,border-color 150ms}
- .action:hover:not(:disabled){background:#ffaf0014;border-color:#ffaf0040;transform:translateY(-1px)}
- .action:disabled{opacity:.45}
- .action :global(.icon){width:12px;height:12px}
- section{flex:none;display:flex;flex-direction:column;gap:8px}
- section.grow{flex:1;min-height:0}
- .section-head{font-size:10px;color:var(--muted);flex:none;display:flex;align-items:center;justify-content:space-between}
- .refresh{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;color:var(--muted);flex:none;margin-left:auto}
- .refresh:hover{background:#ffffff0a;color:var(--text)}
- .refresh :global(.icon){width:11px;height:11px}
- .empty{font-size:10px;color:var(--muted);padding:10px 2px}
- .empty.error{color:#e68a8a}
+ .etudes{height:100%;display:grid;grid-template-columns:170px minmax(0,1fr);gap:14px;min-height:0}.student-nav{display:flex;flex-direction:column;min-height:0;padding:4px 0}.student-title{height:43px;padding:3px 0 0 50px;flex:none}.student-title strong{display:block;font-size:19px;letter-spacing:-.7px;font-weight:400}.student-title strong span{color:var(--accent)}.student-title small{font-size:7px;color:var(--muted);display:block;margin-top:3px}.student-nav nav{display:flex;flex-direction:column;gap:3px;margin-top:6px;min-height:0;overflow:auto}.student-nav nav button{display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:8px;font-size:10px;color:#b8a8bf;text-align:left}.student-nav nav button.active{background:linear-gradient(120deg,#e8c08a15,#ffffff04);color:#e6c99e;box-shadow:inset 2px 0 0 #be9c6b}.student-nav :global(.icon){width:12px;height:12px}.refresh{display:flex;align-items:center;gap:6px;font-size:8px;color:var(--muted);padding:7px 11px 0;margin-top:auto;flex:none}.student-content{min-width:0;min-height:0;height:100%;border:1px solid #ffffff0e;border-radius:20px;background:linear-gradient(135deg,#ffffff05,#0a0e191c);padding:11px 14px;box-shadow:inset 0 1px 0 #ffffff06}section{height:100%;display:flex;flex-direction:column;min-height:0;gap:8px}.section-head{display:flex;align-items:center;justify-content:space-between;min-height:25px;flex:none;padding-bottom:6px;border-bottom:1px solid var(--line);font-size:12px;color:var(--text)}.section-head small{display:inline-block;font-size:8px;color:var(--muted);margin-left:9px}.scroll{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:1px}.empty{font-size:10px;color:var(--muted);padding:14px 3px;line-height:1.7}.empty.error{color:#efa7a0}.empty-state{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;height:100%;gap:8px;color:#c8b8ca;padding:8px}.empty-state :global(.icon){color:var(--accent);width:24px;height:24px}.empty-state strong{font-size:14px;font-weight:400}.empty-state p{font-size:10px;color:var(--muted)}.drop{display:flex;align-items:center;gap:13px;padding:12px 7px;color:var(--accent);border:1px dashed #ffffff16;border-radius:10px}.drop.actif{background:#e2bb8015;border-color:#e2bb8080}.drop p{font-size:12px;color:var(--text)}.drop small{display:block;font-size:9px;color:var(--muted);margin-top:5px;line-height:1.5}.drop-choix,.etudes-actions{display:flex;gap:7px;flex-wrap:wrap}.drop-choix button,.action{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #d1b08230;border-radius:8px;color:#dcc19a;font-size:9px;background:#d1b08209}.drop-choix :global(.icon),.action :global(.icon){width:11px;height:11px}.attachments{display:flex;flex-wrap:wrap;gap:5px}@media(max-width:590px){.etudes{grid-template-columns:130px minmax(0,1fr);gap:8px}.student-title{padding-left:42px}.student-title strong{font-size:16px}.student-title small{font-size:6px}.student-content{padding:10px}.section-head small{display:none}}@media(max-width:420px){.etudes{grid-template-columns:92px minmax(0,1fr)}.student-title{padding-left:5px}.student-title strong{font-size:16px}.student-nav nav button{font-size:9px;padding:7px}.student-nav nav :global(.icon){display:none}.student-content{padding:9px}.drop small{font-size:8px}}
 </style>

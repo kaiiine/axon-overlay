@@ -5,7 +5,7 @@ describe('contrat Axon et état stable',()=>{
  let post=vi.fn();
  beforeEach(()=>{reset();post=vi.fn();window.webkit={messageHandlers:{axon:{postMessage:post}}};});
  afterEach(()=>{reset();delete window.webkit;});
- it('annonce les vrais modes natifs sans redimensionnement sur chaque frappe',()=>{navigate('code');setDraft('a');setDraft('ab');navigate('chat');navigate('home');expect(post.mock.calls.map(c=>c[0])).toEqual([{type:'mode',mode:'detail'},{type:'mode',mode:'accueil'}]);});
+ it('annonce les vrais modes natifs sans redimensionnement sur chaque frappe',()=>{navigate('code');setDraft('a');setDraft('ab');navigate('chat');navigate('home');expect(post.mock.calls.map(c=>c[0])).toEqual([{type:'mode',mode:'detail'},{type:'mode',mode:'conversation'},{type:'mode',mode:'accueil'}]);});
  it('rouvre sans réinitialiser la vue ni la conversation',()=>{navigate('chat');receive({type:'message',texte:'conservé'});open(false);open(true);expect(get(model).view).toBe('chat');expect(get(model).messages[0].text).toBe('conservé');});
  it('préserve le brouillon si le pont échoue',()=>{receive({type:'connexion',connecte:true});post.mockImplementation(()=>{throw Error('déconnecté')});setDraft('important');submit();expect(get(model).draft).toBe('important');expect(get(model).messages).toHaveLength(0);});
  it('répond à toutes les questions avant de transmettre, ID 0 inclus',()=>{vi.useFakeTimers();receive({type:'connexion',connecte:true});receive({type:'demande',id:0,questions:[{texte:'A ?',choix:['oui','non']},{texte:'B ?',choix:[]}]});answer('oui');expect(post.mock.calls.filter(c=>c[0].type==='reponse_demande')).toHaveLength(0);vi.advanceTimersByTime(301);answer('texte libre');expect(post).toHaveBeenLastCalledWith({type:'reponse_demande',id:0,reponses:['oui','texte libre']});expect(get(model).requests).toHaveLength(0);vi.useRealTimers();});
@@ -201,7 +201,7 @@ describe('contrat Axon et état stable',()=>{
   answer('ok');post.mockClear();
   vi.advanceTimersByTime(SORTIE_POPUP_MS+1);
   expect(get(model).view).toBe('etudes');
-  expect(post.mock.calls.map(c=>c[0])).toEqual([{type:'mode',mode:'detail'}]);
+  expect(post.mock.calls.map(c=>c[0])).toEqual([{type:'mode',mode:'accueil'}]);
   vi.useRealTimers();
  });
  it('dans le chat, la demande reste sur place, sans notification',()=>{
@@ -215,7 +215,7 @@ describe('contrat Axon et état stable',()=>{
   post.mockClear();navigate('chat');
   expect(get(model).popup).toBeNull();
   expect(get(model).requests).toHaveLength(1);
-  expect(post).toHaveBeenLastCalledWith({type:'mode',mode:'detail'});
+  expect(post).toHaveBeenLastCalledWith({type:'mode',mode:'conversation'});
  });
  it('une réponse donnée au terminal referme aussi la notification',()=>{
   vi.useFakeTimers();

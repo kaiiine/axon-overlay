@@ -15,7 +15,7 @@ if(reducedMotion.matches)setPreference('motion',false);
 reducedMotion.addEventListener('change',event=>{if(event.matches)setPreference('motion',false);});
 if(!isNative()&&get(model).motion)entrance.set('armed');
 mount(App,{target:document.getElementById('app')!});
-if(window.parent!==window)model.subscribe(s=>window.parent.postMessage({source:'axon-overlay-preview',height:s.view==='home'?280:500},'*'));
+if(window.parent!==window)model.subscribe(s=>window.parent.postMessage({source:'axon-overlay-preview',height:s.view==='chat'?540:s.view==='code'?500:280,width:s.view==='chat'?560:780},'*'));
 async function ready(){
  await tick();
  await Promise.all(Array.from(document.images,img=>img.decode().catch(()=>undefined)));

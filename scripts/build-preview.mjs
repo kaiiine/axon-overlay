@@ -1,0 +1,16 @@
+import {build} from 'vite';
+import {svelte} from '@sveltejs/vite-plugin-svelte';
+import {readFile,writeFile,readdir,mkdir} from 'node:fs/promises';
+import {resolve} from 'node:path';
+const out=resolve('preview-dist');
+await build({configFile:false,root:'ui',plugins:[svelte()],resolve:{conditions:['browser']},build:{outDir:out,emptyOutDir:true,target:'es2022',lib:{entry:resolve('ui/src/preview/main.ts'),name:'AxonPreview',formats:['iife'],fileName:()=> 'preview.js',cssFileName:'preview'},sourcemap:false}});
+const assets={};
+for(const dir of ['','static/'])for(const name of await readdir('ui/mascots/'+dir))if(name.endsWith('.svg'))assets['./mascots/'+dir+name]='data:image/svg+xml;base64,'+(await readFile('ui/mascots/'+dir+name)).toString('base64');
+const escapeScript=value=>value.replace(/<\/script/gi,'<\\/script');
+const css=await readFile(out+'/preview.css','utf8'),js=await readFile(out+'/preview.js','utf8');
+const inner='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body><div id="app"></div><script>window.__axonAssets='+JSON.stringify(assets)+';<\/script><script>'+escapeScript(js)+'<\/script></body></html>';
+const template=await readFile('ui/preview-shell.html','utf8');
+const fragment=template.replace('__PREVIEW_DOCUMENT__',JSON.stringify(inner).replace(/</g,'\\u003c'));
+await writeFile('ui/axon-preview.html','<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Axon — aperçu du front final</title><style>body{margin:0;padding:24px;background:#161822;color:#ece4d9;font-family:system-ui}body>div{max-width:900px;margin:auto}</style></head><body>'+fragment+'</body></html>');
+await writeFile(out+'/fragment.html',fragment);
+console.log('Standalone preview: ui/axon-preview.html');

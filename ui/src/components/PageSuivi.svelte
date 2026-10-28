@@ -53,6 +53,8 @@
   if(r.modifies)return `${r.modifies} non commité${r.modifies>1?'s':''}`;
   return TYPES_RESSOURCE[r.type]??r.type;
  }
+ let onglet='resume';
+ const onglets=[['resume','Vue d’ensemble'],['ressources','Documents'],['taches','Tâches'],['echeances','Échéances'],['resultats','Résultats']];
 </script>
 <div class="page">
  <header>
@@ -69,6 +71,9 @@
  {:else if page&&!d}
   <Skeleton stats={false}/>
  {:else if d}
+  <nav class="detail-tabs" aria-label="Sections du suivi">{#each onglets as [id,label]}<button class:active={onglet===id} aria-pressed={onglet===id} onclick={()=>onglet=id}>{label}</button>{/each}</nav>
+  <div class="detail-scroll">
+  <div hidden={onglet!=='resume'} class="tab-content">
   <Section titre="Résumé">
    <button slot="actions" class="mini" onclick={()=>demanderFlux('resume_suivi',d.id)} disabled={statutResume==='en_cours'||!$model.connected} title="Régénérer le résumé"><Icon name="refresh"/>Régénérer</button>
    <TexteEnFlux texte={texteResume} statut={statutResume} message={flux?.message} vide="Pas encore de résumé."/>
@@ -81,6 +86,7 @@
    <button class="action" onclick={()=>demander('Faisons le point sur')}><Icon name="chat"/>Faire le point</button>
   </div>
 
+  </div><div hidden={onglet!=='echeances'} class="tab-content">
   <Section titre="Échéances" compte={d.echeances.length}>
    <AjouterEcheance slot="actions" disabled={!$model.connected} suivis={[{id:d.id,title:d.titre}]} onCreer={creerEcheance}/>
    {#each d.echeances as e (e.id)}
@@ -92,6 +98,8 @@
    <Calendrier evenements={d.calendrier} couleurs={COULEURS} libelles={LIBELLES}/>
   </Section>
 
+  </div><div hidden={onglet!=='ressources'} class="tab-content">
+  <div class="resource-generation"><button class="mini" onclick={()=>demanderAxon(`/fiche ${d.id}`)}><Icon name="file"/>Créer une fiche</button><button class="mini" onclick={()=>demanderAxon(`/exo ${d.id}`)}><Icon name="spark"/>Exercices</button></div>
   <Section titre="Dépôts et ressources" compte={d.ressources.length}>
    <div slot="actions" class="actions-ressources">
     <button class="mini" onclick={()=>lierRessource(d.id,'fichier')} disabled={!$model.connected} aria-label="Ajouter un fichier"><Icon name="paperclip"/></button>
@@ -101,26 +109,32 @@
    {:else}<p class="vide">Aucune ressource liée.</p>{/each}
   </Section>
 
+  </div><div hidden={onglet!=='taches'} class="tab-content">
   <Section titre="Tâches" compte={d.taches.length}>
    {#each d.taches as t (t.id)}<Row title={t.titre} meta="" tag={t.statut==='fait'?'Fait':'À faire'}/>
    {:else}<p class="vide">Aucune tâche.</p>{/each}
   </Section>
 
+  </div><div hidden={onglet!=='resultats'} class="tab-content">
   {#if d.resultats.length}
    <Section titre="Fiches et exercices" compte={d.resultats.length}>
     {#each d.resultats as r}<Row title={r.fichier} meta={r.date} tag={r.type} actions={[{label:'Ouvrir',icon:'file',onClick:()=>ouvrirFichier(r.fichier)}]}/>{/each}
    </Section>
   {/if}
 
+  {#if !d.resultats.length}<p class="vide">Aucune fiche ni exercice pour le moment.</p>{/if}
   {#if d.verification}
    <Section titre={`Dernière vérification · ${d.verification.date}`}>
     <div class="md">{@html renderMarkdown(d.verification.texte)}</div>
    </Section>
   {/if}
+  </div></div>
  {/if}
 </div>
 <style>
- .page{height:100%;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto;padding:1px}
+ .detail-tabs{display:flex;gap:15px;flex:none;border-bottom:1px solid var(--line);overflow:auto}.detail-tabs button{font-size:9px;color:var(--muted);white-space:nowrap;padding:4px 0 8px;border-bottom:1px solid transparent}.detail-tabs button.active{color:var(--accent);border-color:var(--accent)}.detail-scroll{flex:1;min-height:0;overflow:auto;padding:2px}.tab-content{display:flex;flex-direction:column;gap:8px}.resource-generation{display:flex;gap:7px;justify-content:flex-end}
+
+ .page{height:100%;display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden;padding:1px}
  header{display:flex;align-items:center;gap:10px;flex:none}
  .retour,.refresh{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;color:var(--muted);background:#ffffff07;flex:none}
  .retour:hover,.refresh:hover{background:#ffffff10;color:var(--text)}

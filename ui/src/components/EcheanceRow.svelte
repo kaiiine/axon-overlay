@@ -1,6 +1,7 @@
 <script lang="ts">
  import {model,majEcheance,planifierRappels} from '../model';
  import Icon from './Icon.svelte';
+ import FormSheet from './commun/FormSheet.svelte';
  //: Pas une variante de Row.svelte (integrations/Row.svelte) : celui-là
  //: déplie un DÉTAIL markdown en lecture seule (Gmail, Jira…) ; une échéance
  //: a besoin d'un vrai formulaire inline (la date à reporter) — mélanger
@@ -61,10 +62,11 @@
   </div>
  </div>
  {#if reportOuvert}
-  <div class="report">
-   <input type="date" bind:value={nouvelleDate} disabled={enAttente} aria-label="Nouvelle date"/>
-   <button class="send" title="Confirmer le report" aria-label="Confirmer le report" disabled={enAttente||!nouvelleDate} onclick={confirmerReport}><Icon name="send"/></button>
-  </div>
+  <FormSheet titre="Reporter l’échéance" sousTitre={title} busy={enAttente} onClose={basculerReport}>
+   <div class="form-grid"><label class="wide">La nouvelle date<input type="date" bind:value={nouvelleDate} disabled={enAttente} aria-label="Nouvelle date"/></label></div>
+   {#if erreur}<p class="erreur" role="alert">{erreur}</p>{/if}
+   <svelte:fragment slot="footer"><button disabled={enAttente} onclick={basculerReport}>Annuler</button><button class="send" aria-label="Confirmer le report" disabled={enAttente||!nouvelleDate} onclick={confirmerReport}>{enAttente?'Envoi…':'Confirmer le report'}<Icon name="arrow"/></button></svelte:fragment>
+  </FormSheet>
  {/if}
  {#if erreur}<p class="erreur">{erreur}</p>{/if}
 </div>
@@ -84,12 +86,5 @@
  .row-action:disabled{opacity:.4;cursor:default}
  .row-action.active{background:#ffaf001f;border-color:#ffaf0050;color:#f0cf93}
  .row-action :global(.icon){width:12px;height:12px}
- .report{display:flex;gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid #ffffff0a;animation:revealIn 180ms var(--spring-soft) both}
- @keyframes revealIn{0%{opacity:0;transform:translateY(-3px)}100%{opacity:1;transform:translateY(0)}}
- .report input{flex:1;min-width:0;border:1px solid #ffffff14;background:#ffffff06;color:var(--text);font:11px/1.4 var(--font);padding:7px 9px;border-radius:9px;outline:none}
- .report input:focus{border-color:#ffaf0045;background:#ffffff09}
- .send{width:28px;height:28px;flex:none;border-radius:8px;display:grid;place-items:center;background:var(--accent);color:#241700;transition:transform 160ms var(--spring),background 150ms,opacity 150ms}
- .send:hover:not(:disabled){background:#ffc02e;transform:translateY(-1px)}
- .send:disabled{opacity:.35}
  .erreur{font-size:10px;color:#e68a8a;margin:6px 0 0}
 </style>

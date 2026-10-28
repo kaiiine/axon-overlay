@@ -45,6 +45,7 @@ const VERS_AXON: [&str; 16] = [
 enum Mode {
     Accueil,
     Detail,
+    Conversation,
     Notif,
     Bulle,
     Pastille,
@@ -60,6 +61,7 @@ impl Mode {
     fn depuis(nom: &str) -> Mode {
         match nom {
             "accueil" => Mode::Accueil,
+            "conversation" => Mode::Conversation,
             "notif" => Mode::Notif,
             "bulle" => Mode::Bulle,
             "pastille" => Mode::Pastille,
@@ -103,6 +105,7 @@ fn taille(mode: Mode, hauteur_notif: f64) -> (f64, f64) {
     match mode {
         Mode::Accueil => (LARGEUR, 280.0),
         Mode::Detail => (LARGEUR, 500.0),
+        Mode::Conversation => (560.0, 540.0),
         Mode::Notif | Mode::Bulle => (LARGEUR_NOTIF, hauteur_notif),
         Mode::Pastille => (PASTILLE, PASTILLE),
     }
@@ -285,6 +288,7 @@ mod tests {
     fn chaque_mode_a_la_taille_de_l_ile_gtk() {
         assert_eq!(taille(Mode::Accueil, 0.0), (780.0, 280.0));
         assert_eq!(taille(Mode::Detail, 0.0), (780.0, 500.0));
+        assert_eq!(taille(Mode::Conversation, 0.0), (560.0, 540.0));
         assert_eq!(taille(Mode::Notif, 200.0), (620.0, 200.0));
         assert_eq!(taille(Mode::Bulle, 180.0), (620.0, 180.0));
         assert_eq!(taille(Mode::Pastille, 0.0), (44.0, 44.0));
@@ -293,6 +297,7 @@ mod tests {
     #[test]
     fn un_mode_inconnu_vaut_la_vue_detaillee() {
         assert_eq!(Mode::depuis("accueil"), Mode::Accueil);
+        assert_eq!(Mode::depuis("conversation"), Mode::Conversation);
         assert_eq!(Mode::depuis("pastille"), Mode::Pastille);
         assert_eq!(Mode::depuis("n'importe quoi"), Mode::Detail);
     }

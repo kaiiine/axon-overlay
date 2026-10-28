@@ -55,14 +55,14 @@
 <style>
  .row{padding:9px 11px;background:#ffffff05;border:1px solid #ffffff08;border-top-color:#ffffff14;border-radius:10px;transition:background 150ms,border-color 150ms}
  .row:hover{background:#ffffff09;border-color:#ffffff20}
- .content{display:flex;align-items:center;gap:8px;width:100%}
+ .content{display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap}
  .text{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
  .text.ouvrir{text-align:left;align-items:stretch}
  .text.ouvrir:hover b{color:#f0cf93}
  .text b{font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .text span{font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .row i{font-style:normal;font-size:8px;font-weight:600;padding:3px 7px;border-radius:20px;background:color-mix(in srgb,var(--c,#9395a0) 18%,#ffffff08);color:var(--c,#b0b2bc);flex:none}
- .row-actions{display:flex;gap:4px;flex:none;max-width:0;overflow:hidden;opacity:0;transform:translateX(-2px);transition:opacity 150ms,transform 150ms,max-width 150ms}
+ .row-actions{display:flex;gap:4px;flex:none;margin-left:auto;max-width:260px;overflow:visible;opacity:1;transform:translateX(-2px);transition:opacity 150ms,transform 150ms,max-width 150ms}
  /* max-width : cachées, elles ne réservent pas de place — l'étiquette reste calée à droite. */
  .row:hover .row-actions,.row-actions:focus-within{max-width:260px;opacity:1;transform:translateX(0)}
  .row.open .row-actions{max-width:260px;opacity:1;transform:translateX(0)} /* repliable sans re-survoler */

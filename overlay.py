@@ -47,6 +47,7 @@ SOCKET_CONTROLE = RUNTIME / "axon" / "controle.sock"
 # Deux tailles natives. Aucun remappage ou rechargement lors du changement de vue.
 TAILLE_ACCUEIL = (780, 280)
 TAILLE_DETAIL = (780, 500)
+TAILLE_CONVERSATION = (560, 540)
 # Une demande HITL qui arrive île fermée : une petite notification, pas le chat.
 TAILLE_NOTIF = (620, 152)
 # La notification suit la hauteur de son contenu (plusieurs lignes de
@@ -56,7 +57,7 @@ HAUTEUR_NOTIF = (120, 340)
 TAILLE_PASTILLE = (44, 44)
 MARGE_HAUT = 14
 MARGE_HAUT_PASTILLE = 6
-TAILLES = {"accueil": TAILLE_ACCUEIL, "detail": TAILLE_DETAIL, "notif": TAILLE_NOTIF,
+TAILLES = {"accueil": TAILLE_ACCUEIL, "detail": TAILLE_DETAIL, "conversation": TAILLE_CONVERSATION, "notif": TAILLE_NOTIF,
            "bulle": TAILLE_NOTIF, "pastille": TAILLE_PASTILLE}
 # La notification d'une demande et la bulle d'un rappel suivent leur contenu.
 HAUTEUR_VARIABLE = {"notif", "bulle"}

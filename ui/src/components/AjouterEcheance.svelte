@@ -2,6 +2,7 @@
  import {tick} from 'svelte';
  import {model} from '../model';
  import Icon from './Icon.svelte';
+ import FormSheet from './commun/FormSheet.svelte';
  //: Même patron que CreerSuivi.svelte (§2, lot 3 posé comme modèle à
  //: reprendre pour ces actions-là aussi) : le "+" révèle le formulaire, qui
  //: ne se referme que sur confirmation du backend.
@@ -41,47 +42,23 @@
   if(!t||!date||!suiviId||disabled||enAttente)return;
   erreur='';
   idEnAttente=onCreer(suiviId,t,type,date)??null;
+  if(!idEnAttente)erreur='La création n’a pas pu être envoyée. Vérifie la connexion à Axon.';
  }
- function key(e:KeyboardEvent){if(e.key==='Enter'){e.preventDefault();soumettre();}else if(e.key==='Escape'){e.preventDefault();basculer();}}
+ function key(e:KeyboardEvent){if(e.key==='Enter'){e.preventDefault();soumettre();}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();basculer();}}
 </script>
 <button class="toggle" class:ouvert onclick={basculer} title="Nouvelle échéance" aria-label="Nouvelle échéance" aria-expanded={ouvert} disabled={disabled||enAttente||!suivis.length}>
  <Icon name="plus"/>
 </button>
 {#if ouvert}
- <div class="form">
-  <div class="row">
-   <select bind:value={suiviId} aria-label="Suivi concerné" disabled={disabled||enAttente}>
-    {#each suivis as s}<option value={s.id}>{s.title}</option>{/each}
-   </select>
-   <select bind:value={type} aria-label="Type d’échéance" disabled={disabled||enAttente}>
-    {#each TYPES as t}<option value={t.valeur}>{t.label}</option>{/each}
-   </select>
+ <FormSheet titre="Nouvelle échéance" busy={enAttente} onClose={basculer}>
+  <div class="form-grid">
+   <label>À préparer<input bind:this={titreInput} bind:value={titre} onkeydown={key} placeholder="Examen final, rendu…" aria-label="Titre de l’échéance" autocomplete="off" disabled={disabled||enAttente}/></label>
+   <label>Pour quand ?<input type="date" bind:value={date} onkeydown={key} aria-label="Date de l’échéance" disabled={disabled||enAttente}/></label>
+   <label>Dans quel suivi ?<select bind:value={suiviId} aria-label="Suivi concerné" disabled={disabled||enAttente}>{#each suivis as s}<option value={s.id}>{s.title}</option>{/each}</select></label>
+   <label>Type d’échéance<select bind:value={type} aria-label="Type d’échéance" disabled={disabled||enAttente}>{#each TYPES as t}<option value={t.valeur}>{t.label}</option>{/each}</select></label>
   </div>
-  <div class="row">
-   <input bind:this={titreInput} bind:value={titre} onkeydown={key} placeholder="Titre de l’échéance…" aria-label="Titre de l’échéance" autocomplete="off" disabled={disabled||enAttente}/>
-   <input type="date" bind:value={date} onkeydown={key} aria-label="Date de l’échéance" disabled={disabled||enAttente}/>
-   <button class="send" title="Créer" aria-label="Créer" disabled={disabled||enAttente||!titre.trim()||!date} onclick={soumettre}><Icon name="send"/></button>
-  </div>
-  {#if erreur}<p class="erreur">{erreur}</p>{/if}
- </div>
+  {#if erreur}<p class="erreur" role="alert">{erreur}</p>{/if}
+  <svelte:fragment slot="footer"><button disabled={enAttente} onclick={basculer}>Annuler</button><button class="send" aria-label="Créer" disabled={disabled||enAttente||!titre.trim()||!date||!suiviId} onclick={soumettre}>{enAttente?'Création…':'Ajouter l’échéance'}<Icon name="arrow"/></button></svelte:fragment>
+ </FormSheet>
 {/if}
-<style>
- .toggle{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;color:var(--muted);flex:none}
- .toggle:hover,.toggle.ouvert{background:#ffffff0a;color:var(--text)}
- .toggle:disabled{opacity:.4}
- .toggle :global(.icon){width:11px;height:11px}
- .toggle.ouvert :global(.icon){transform:rotate(45deg)}
- .toggle :global(.icon){transition:transform 150ms var(--spring)}
- .form{display:flex;flex-direction:column;gap:6px;flex:none;animation:revealIn 180ms var(--spring-soft) both}
- @keyframes revealIn{0%{opacity:0;transform:translateY(-3px)}100%{opacity:1;transform:translateY(0)}}
- .row{display:flex;gap:6px;align-items:center}
- input,select{border:1px solid #ffffff14;background:#ffffff06;color:var(--text);font:11px/1.4 var(--font);padding:7px 9px;border-radius:9px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color 150ms,background 150ms}
- input{flex:1;min-width:0}
- input:focus,select:focus{border-color:#ffaf0045;background:#ffffff09}
- input:disabled,select:disabled{opacity:.5}
- select{flex:1;min-width:0}
- .send{width:28px;height:28px;flex:none;border-radius:8px;display:grid;place-items:center;background:var(--accent);color:#241700;transition:transform 160ms var(--spring),background 150ms,opacity 150ms}
- .send:hover:not(:disabled){background:#ffc02e;transform:translateY(-1px)}
- .send:disabled{opacity:.35}
- .erreur{font-size:10px;color:#e68a8a;margin:0}
-</style>
+<style>.toggle{width:25px;height:25px;border-radius:8px;display:grid;place-items:center;color:var(--accent);background:#e9bc7b0b;border:1px solid #e9bc7b24;flex:none}.toggle:hover{background:#e9bc7b18}.toggle :global(.icon){width:12px;height:12px}.erreur{font-size:10px;color:#efa7a0;margin-top:6px}</style>
